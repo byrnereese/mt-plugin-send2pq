@@ -10,6 +10,14 @@
 </mt:setvarblock>
 <mt:include name="dialog/header.tmpl">
 
+<mt:if name="batch_exists">
+        <mtapp:statusmsg
+            id="exists"
+            class="info">
+            <__trans phrase="A publish request for this blog has already been submitted to the publish queue.">
+        </mtapp:statusmsg>
+</mt:if>
+
   <p>
     This process will send 100% of the blog's contents to the Publish Queue to be published, irrespective of any template's publishing settings.
   </p>

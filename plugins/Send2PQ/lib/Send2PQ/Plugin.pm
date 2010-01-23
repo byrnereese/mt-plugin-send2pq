@@ -82,7 +82,7 @@ sub send_to_queue {
         $pub->rebuild( Blog => $app->blog );
         return $app->load_tmpl( 'dialog/close.tmpl' );
     }
-
+    $param->{batch_exists}  = MT->model('pub_batch')->exist({ blog_id => $app->blog->id });
     $param->{blog_id}       = $app->blog->id;
     $param->{default_email} = $app->user->email;
     return $app->load_tmpl( 'dialog/send_to_queue.tmpl', $param );
