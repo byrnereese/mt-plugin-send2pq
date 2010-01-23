@@ -1,0 +1,53 @@
+<mt:setvarblock name="page_title"><__trans phrase="Send to Publish Queue"></mt:setvarblock>
+<mt:setvarblock name="html_head" append="1">
+    <link rel="stylesheet" href="<mt:var name="static_uri">plugins/Send2PQ/app.css" type="text/css" />
+    <script type="text/javascript" src="<mt:var name="static_uri">js/dialog.js"></script>
+    <script type="text/javascript">
+    <!--
+
+    // -->
+    </script>
+</mt:setvarblock>
+<mt:include name="dialog/header.tmpl">
+
+  <p>
+    This process will send 100% of the blog's contents to the Publish Queue to be published, irrespective of any template's publishing settings.
+  </p>
+
+  <form name="send_to_queue" 
+        method="post" 
+        action="<$mt:var name="script_url"$>">
+    <input type="hidden" name="__mode" value="send_to_queue" />
+    <input type="hidden" name="create_job" value="1" />
+    <input type="hidden" name="blog_id" value="<$mt:var name="blog_id"$>" />
+
+    <mtapp:setting
+        id="email"
+        label_class="top-label"
+        label="<__trans phrase="Email Address">"
+        hint="Send an email to this email address when the process is complete."
+        show_hint="1">
+      <input type="text" name="email" value="<$mt:var name="default_email"$>" size="60" />
+    </mtapp:setting>
+
+    <div class="actions-bar">
+      <div class="actions-bar-inner pkg actions">
+            <button
+                id="continue"
+                type="submit"
+                accesskey="s"
+                title="<__trans phrase="Continue (c)">"
+                class="primary-button"
+                ><__trans phrase="Continue"></button>
+            <button
+                onclick="closeDialog(); return false"
+                type="submit"
+                accesskey="x"
+                class="cancel close"
+                title="<__trans phrase="Close (x)">"
+                ><__trans phrase="Close"></button>
+      </div>
+    </div>
+  </form>
+
+<mt:include name="dialog/footer.tmpl">
