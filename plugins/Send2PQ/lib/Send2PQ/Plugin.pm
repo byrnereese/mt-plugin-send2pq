@@ -61,7 +61,7 @@ sub send_to_queue {
 
     return unless $app->blog;
 
-    if ($q->{'create_job'}) {
+    if ($q->param('create_job')) {
         my $batch = MT->model('pub_batch')->new;
         $batch->blog_id( $app->blog->id );
         $batch->email( $q->param('email') );
