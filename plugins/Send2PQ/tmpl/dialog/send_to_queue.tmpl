@@ -24,9 +24,13 @@
   <form name="send_to_queue" 
         method="post" 
         action="<$mt:var name="script_url"$>">
-    <input type="hidden" name="__mode" value="send_to_queue" />
+    <input type="hidden" name="__mode" value="send_<mt:If name="blog_ids">blogs_</mt:If>to_queue" />
     <input type="hidden" name="create_job" value="1" />
+<mt:If name="blog_id">
     <input type="hidden" name="blog_id" value="<$mt:var name="blog_id"$>" />
+<mt:Else>
+    <input type="hidden" name="blog_ids" value="<$mt:var name="blog_ids"$>" />
+</mt:If>
 
     <mtapp:setting
         id="email"

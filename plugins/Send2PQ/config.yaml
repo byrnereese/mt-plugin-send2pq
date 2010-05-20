@@ -1,7 +1,7 @@
 id: Send2PQ
 name: 'Send to Publish Queue'
 description: "This plugin provides administrators with the ability to send a blog's contents to the Publish Queue for publishing regardless of the blog's individual template publish settings."
-version: 0.9.1
+version: 0.9.2
 schema_version: 0.5
 
 object_types:
@@ -13,6 +13,7 @@ applications:
   cms:
     methods:
       send_to_queue: $Send2PQ::Send2PQ::Plugin::send_to_queue
+      send_blogs_to_queue: $Send2PQ::Send2PQ::Plugin::send_blogs_to_queue
 
 callbacks:
   build_file_filter: $Send2PQ::Send2PQ::Plugin::send_all_to_queue
@@ -26,5 +27,14 @@ page_actions:
       permission: publish_post
       condition: >
         sub { MT->app->blog; }
+
+list_actions:
+  blog:
+    send_blogs_to_queue:
+      label: Send to Publish Queue
+      order: 1011
+      code: $Send2PQ::Send2PQ::Plugin::send_blogs_to_queue
+      dialog: 1
+      permission: publish_post
 
 tasks: $Send2PQ::Send2PQ::Plugin::load_tasks

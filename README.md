@@ -9,6 +9,10 @@ an entire blog immediately after a deployment. The plugin will instruct
 MT to update every file, but will send every file to the publish 
 queue regardless of its settings.
 
+Send to Publish Queue can also be used to republish many blogs: visit System 
+Overview > Blogs, select the blogs you'd like republished, and choose "Send to
+Publish Queue" from the List Actions.
+
 # Installation
 
 To install this plugin follow the instructions found here:

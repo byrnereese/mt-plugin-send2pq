@@ -53,6 +53,23 @@ sub task_cleanup {
     }
 }
 
+sub send_blogs_to_queue {
+    my $app = shift;
+    my ($param) = @_;
+    my $q       = $app->{query};
+    $param ||= {};
+    if ( $q->param('create_job') ) {
+        my @blog_ids = split(/,/, $q->param('blog_ids') );
+        foreach my $blog_id (@blog_ids) {
+            _create_batch( $blog_id, $q->param('email') );
+        }
+        return $app->load_tmpl( 'dialog/close.tmpl' );
+    }
+    $param->{blog_ids}       = join( ',', $q->param('id') );
+    $param->{default_email} = $app->user->email;
+    return $app->load_tmpl( 'dialog/send_to_queue.tmpl', $param );
+}
+
 sub send_to_queue {
     my $app = shift;
     my ($param) = @_;
@@ -62,30 +79,40 @@ sub send_to_queue {
     return unless $app->blog;
 
     if ($q->param('create_job')) {
-        my $batch = MT->model('pub_batch')->new;
-        $batch->blog_id( $app->blog->id );
-        $batch->email( $q->param('email') );
-        $batch->save
-            or return $app->error(
-                $app->translate(
-                    "Unable to create a publishing batch and send content to the publish queue",
-                    $batch->errstr
-                )
-            );
-
-        require MT::Request;
-        my $r = MT::Request->instance();
-        $r->stash('publish_batch',$batch);
-
-        require MT::WeblogPublisher;
-        my $pub = MT::WeblogPublisher->new;
-        $pub->rebuild( Blog => $app->blog );
+        _create_batch( $app->blog->id, $q->param('email') );
         return $app->load_tmpl( 'dialog/close.tmpl' );
     }
     $param->{batch_exists}  = MT->model('pub_batch')->exist({ blog_id => $app->blog->id });
     $param->{blog_id}       = $app->blog->id;
     $param->{default_email} = $app->user->email;
     return $app->load_tmpl( 'dialog/send_to_queue.tmpl', $param );
+}
+
+sub _create_batch {
+    my ($blog_id, $email) = @_;
+    my $app = MT->instance;
+
+    # Skip this blog if it's already marked to republish.
+    return if ( MT->model('pub_batch')->exist({ blog_id => $blog_id }) );
+
+    my $batch = MT->model('pub_batch')->new;
+    $batch->blog_id( $blog_id );
+    $batch->email( $email );
+    $batch->save
+        or return $app->error(
+            $app->translate(
+                "Unable to create a publishing batch and send content to the publish queue",
+                $batch->errstr
+            )
+        );
+
+    require MT::Request;
+    my $r = MT::Request->instance();
+    $r->stash('publish_batch',$batch);
+
+    require MT::WeblogPublisher;
+    my $pub = MT::WeblogPublisher->new;
+    $pub->rebuild( BlogID => $blog_id );
 }
 
 # Adds every non-disabled template to the publish queue. 
