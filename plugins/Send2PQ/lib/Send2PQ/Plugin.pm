@@ -22,7 +22,7 @@ sub task_cleanup {
     my $mt = MT->instance;
     my @batches = MT->model('pub_batch')->load();
     foreach my $batch (@batches) {
-        if (MT->model('ts_job')->exist( $batch->id )) {
+        if ( eval {MT->model('ts_job')->exist( $batch->id )} ) {
             # do nothing at this time
             # possible future: see how long the job has been on the queue, send warning if it has
             # been on the queue too long
@@ -38,8 +38,24 @@ sub task_cleanup {
                 require MT::Mail;
                 my %head = ( To => $batch->email, Subject => '['.$batch->blog->name.'] Publishing Batch Finished' );
                 my $body = "The publishing batch you initiated on $date has completed. See for yourself:\n\n" . $batch->blog->site_url . "\n\n";
-                MT::Mail->send(\%head, $body)
-                    or die MT::Mail->errstr;
+                
+                if ( !MT::Mail->send(\%head, $body) ) {
+                    # Mail failed to be sent.
+                    MT->log({
+                        message => 'Send to Publish Queue error: '.MT::Mail->errstr,
+                        class   => 'system',
+                        blog_id => $batch->blog->id,
+                        level   => MT::Log::ERROR()
+                    });
+                    # The blog was successfully published, however, so just
+                    # publish a notice to the Activity Log.
+                    MT->log({
+                        message => "It appears the publishing batch with an ID of " .$batch->id. " has finished. Cleaning up.",
+                        class   => "system",
+                        blog_id => $batch->blog->id,
+                        level   => MT::Log::INFO()
+                    });
+                }
             } else {
                 MT->log({
                     message => "It appears the publishing batch with an ID of " .$batch->id. " has finished. Cleaning up.",
