@@ -140,7 +140,7 @@ sub build_file {
     my ( $cb, %args ) = @_;
     my $fi = $args{file_info};
     my $job = MT->model('ts_job')->load({ uniqkey => $fi->id });
-    MT->log("Request to build");
+    #MT->log("Request to build");
     # Only remove jobs added by this plugin.
     if ($job && $job->batch_id > 0) {
         # A file has been rebuilt by some other process. Let's go
