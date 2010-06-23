@@ -1,7 +1,7 @@
 id: Send2PQ
 name: 'Send to Publish Queue'
 description: "This plugin provides administrators with the ability to send a blog's contents to the Publish Queue for publishing regardless of the blog's individual template publish settings."
-version: 0.9.4
+version: 0.9.5
 schema_version: 0.5
 
 object_types:

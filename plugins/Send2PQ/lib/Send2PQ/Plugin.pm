@@ -231,7 +231,9 @@ sub send_all_to_queue {
 
     # Note to self - this does not appear to utilize TheSchwart's insert 
     # routine. Should this be fixed?
-    $job->save or MT->log({
+    # $job->save or MT->log({
+    # Using the insert routine seems to work... and fixes an error on a client's site.
+    $job->insert or MT->log({
         blog_id => $fi->blog_id,
         message => "Could not queue publish job for Send2Q: " . $job->errstr
     });
