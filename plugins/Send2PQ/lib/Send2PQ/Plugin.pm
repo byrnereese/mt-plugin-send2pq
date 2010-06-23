@@ -22,7 +22,7 @@ sub task_cleanup {
     my $mt = MT->instance;
     my @batches = MT->model('pub_batch')->load();
     foreach my $batch (@batches) {
-        if ( eval {MT->model('ts_job')->exist( $batch->id )} ) {
+        if (MT->model('ts_job')->exist( { batch_id => $batch->id } )) {
             # do nothing at this time
             # possible future: see how long the job has been on the queue, send warning if it has
             # been on the queue too long
@@ -131,6 +131,25 @@ sub _create_batch {
     $pub->rebuild( BlogID => $blog_id );
 }
 
+# This callback is called when a file is successfully published. Let's use
+# this to remove any requests to rebuild the same file from the publish
+# queue. This will help reduce needless republishing.
+# Keep in mind though that this will not be called if the contents of the
+# published file has not changed.
+sub build_file {
+    my ( $cb, %args ) = @_;
+    my $fi = $args{file_info};
+    my $job = MT->model('ts_job')->load({ uniqkey => $fi->id });
+    MT->log("Request to build");
+    # Only remove jobs added by this plugin.
+    if ($job && $job->batch_id > 0) {
+        # A file has been rebuilt by some other process. Let's go
+        # ahead and remove it from the queue since there is not need
+        # to publish it twice.
+        $job->remove or MT->log("Could not remove file from queue.");
+    }
+}
+
 # Adds every non-disabled template to the publish queue. 
 # This is a near copy of the build_file_filter in MT::WeblogPublisher
 sub send_all_to_queue {
@@ -139,15 +158,39 @@ sub send_all_to_queue {
     require MT::Request;
     my $r = MT::Request->instance();
     my $batch = $r->stash('publish_batch');
+    my $fi = $args{file_info};
 
     unless ($batch) {
         # Batch does not exist, so assume we can publish. Let other build_file_filters determine
         # course of action.
+        # In other words, this publish request is coming from somewhere else other than a user
+        # initiating a "Publish via Queue" method. So short circuit.
+
+        # However, before we just pass on a chance to do something useful, let's see if a job
+        # already exists on the queue for the corresponding file. If so, let's do one of two
+        # things:
+        #   a) TODO - if the file is getting published synchronously - REMOVE IT from the queue
+        #   b) increase the priority of the job, for each request to publish it
+
+        my $job = MT->model('ts_job')->load({ uniqkey => $fi->id });
+        if ($job) {
+            # The job exists! Ok, so if its current priority is less than its default
+            # then let's increment the priority so that the more often a file is asked to be 
+            # rebuilt, the higher the priority it will become.
+            my $max_priority = _get_default_job_priority($fi);
+            if ($job->priority < $max_priority) {
+                $job->priority( $job->priority + 1 );
+                $job->save;
+            }
+        }
+
         return 1;
     }
 
-    my $fi = $args{file_info};
-#    return 1 if $fi->{from_queue};
+    # If we have gotten this far, then we know for sure that the request to build this
+    # file has come from a user asking Send to Queue to do so.
+    # The job *may* already exist on the queue, if so, let's just let TheSchwartz decide
+    # what to do.
 
     require MT::PublishOption;
     my $throttle = MT::PublishOption::get_throttle($fi);
@@ -162,24 +205,42 @@ sub send_all_to_queue {
         return $args{force} ? 1 : 0;
     }
 
-    my $priority = _get_job_priority($fi);
+    # Let's default to the lowest priority possible. That way a request to republish a 
+    # HUGE site will not penalize the priority of jobs not yet added to the queue.
+    # Further above though, this is compensated for because every time a request to 
+    # build a file is made, Send2Queue will check to see if a job already exists for
+    # that file and if so, increase its priority.
+    #my $priority = _get_default_job_priority($fi);
+    my $priority = 1;
 
     require MT::TheSchwartz;
-    require TheSchwartz::Job;
-    my $job = TheSchwartz::Job->new();
-    $job->funcname('MT::Worker::Publish');
+    my $ts = MT::TheSchwartz->instance();
+    my $func_id = $ts->funcname_to_id($ts->driver_for,$ts->shuffled_databases,'MT::Worker::Publish');
+
+    my $job = MT->model('ts_job')->new();
     $job->uniqkey( $fi->id );
+    $job->funcid( $func_id );
     if ($job->has_column('batch_id')) {
         $job->batch_id( $batch->id );
     }
     $job->priority( $priority );
-    $job->coalesce( ( $fi->blog_id || 0 ) . ':' . $$ . ':' . $priority . ':' . ( time - ( time % 10 ) ) );
-    MT::TheSchwartz->insert($job);
+    $job->grabbed_until(1);
+    $job->run_after(1);
+    $job->coalesce( ( $fi->blog_id || 0 ) . ':' . $$ . ':' . 
+                    $priority . ':' . ( time - ( time % 10 ) ) );
+
+    # Note to self - this does not appear to utilize TheSchwart's insert 
+    # routine. Should this be fixed?
+    $job->save or MT->log({
+        blog_id => $fi->blog_id,
+        message => "Could not queue publish job for Send2Q: " . $job->errstr
+    });
 
     return 0;
 }
 
-sub _get_job_priority {
+# This logic replicates MT's prioritization scheme.
+sub _get_default_job_priority {
     my ($fi) = @_;
     my $priority = 0;
     my $at = $fi->archive_type || '';
